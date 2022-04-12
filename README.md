@@ -3,6 +3,8 @@
 This tool extracts sentences and split audio from mp3, mp3 and wav files so that they can be used as training data for speech-to-text and text-to-speech applications,
 e.g. https://github.com/padmalcom/Real-Time-Voice-Cloning-German
 
+<a href="https://www.buymeacoffee.com/padmalcom" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/default-orange.png" alt="Buy Me A Coffee" height="41" width="174"></a>
+
 ## Installation
 - Download vosk models from https://alphacephei.com/vosk/models:
 	- STT model: https://alphacephei.com/vosk/models/vosk-model-small-de-0.15.zip
