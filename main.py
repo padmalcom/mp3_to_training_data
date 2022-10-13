@@ -154,8 +154,8 @@ class Transcriber:
 			word_index = end_index + 1
 		return sentences
 		
-	def fix_audio(self, audio_file):
-		file_name, file_extension = os.path.splitext(audio_file)
+	def fix_audio(self, audio_file, tmp_dir):
+		file_name, file_extension = os.path.splitext(os.path.basename(audio_file))
 		audio = None
 		is_video = False
 		if file_extension.lower() == '.mp3':
@@ -174,49 +174,85 @@ class Transcriber:
 		audio = audio.set_channels(1)
 		audio = audio.set_frame_rate(16000)
 		audio = audio.set_sample_width(2)
-		timestamp = datetime.now().microsecond
-		file_name = "conv" + str(timestamp) + ".wav"
+		file_name = os.path.join(tmp_dir, file_name + ".wav")
+		file_exists = os.path.exists(file_name)
 		audio.export(file_name, format='wav', bitrate="64k")
-		return file_name, is_video
+		return file_name, is_video, audio.duration_seconds, file_exists
 		
 def get_files(dir_or_mp3_file):
 	files = []
 	if os.path.exists(dir_or_mp3_file):
+		print(1)
 		if os.path.isfile(dir_or_mp3_file):
+			print(2)
 			files.append(dir_or_mp3_file)
 		elif os.path.isdir(dir_or_mp3_file):
-			for file in glob.glob(os.path.join(dir_or_mp3_file, "*.mp3")):
+			if not dir_or_mp3_file.endswith("/"):
+				dir_or_mp3_file += "/"
+			search_path = dir_or_mp3_file + "**/*.mp3"
+			print(search_path)
+			for file in glob.glob(search_path, recursive=True):
 				files.append(file)
 	return files
 
-def create_transcript(dir_or_mp3_file):
+def create_transcript(dir_or_mp3_file, out_dir):
 	start = timer()
 	t = Transcriber()
 	
 	files = get_files(dir_or_mp3_file)
-	logger.info("There are {} mp3 files in total.", len(files))
+	logger.info("There are {} mp3 files in {}.", len(files), dir_or_mp3_file)
 	total_seconds = 0
 	
 	timestamp = datetime.now().microsecond
 	output_dir = "out" + str(timestamp)
+	tmp_dir = os.path.join(output_dir, "tmp")
+	
+	if out_dir:
+		output_dir = out_dir
+		tmp_dir = os.path.join(output_dir, "tmp")
 	wav_dir = os.path.join(output_dir, 'wavs')
-	os.mkdir(output_dir)
-	os.mkdir(wav_dir)
-	counter = 0	
-	with open(os.path.join(output_dir, 'metadata.csv'), 'w', encoding="utf-8") as csvfile:
-		for f in files:
+	if not os.path.exists(output_dir):
+		os.mkdir(output_dir)
 		
-			fixed_audio_file, is_video = t.fix_audio(f)
+	if not os.path.exists(wav_dir):
+		os.mkdir(wav_dir)
+		
+	if not os.path.exists(tmp_dir):
+		os.mkdir(tmp_dir)
+		
+	counter = 0	
+	metadata_file = os.path.join(output_dir, "metadata.csv")
+	# check if a previous process has to be continued
+	if os.path.exists(metadata_file):
+		with open(metadata_file, 'r', encoding="utf-8") as f:
+			lines = f.readlines()
+			for line in reversed(lines):
+				# if line is not emtpy
+				if line.strip():
+					words = line.split("|")
+					counter = int(words[0])+1
+					break
+
+	if counter > 0:
+		logger.info("Existing metadata.csv found. Continuing at audio file {}.", counter)
+	
+	with open(os.path.join(output_dir, 'metadata.csv'), 'w', encoding="utf-8") as csvfile:
+		for index, f in enumerate(files):
+			logger.info("Processing file {}/{} (audio so far: {})...", index, len(files), timedelta(seconds=total_seconds))
+							
+			fixed_audio_file, is_video, audio_duration, file_existed = t.fix_audio(f, tmp_dir)
+			
+			if file_existed:
+				total_seconds +=audio_duration				
+				logger.info("File {} already processed. skipping...", fixed_audio_file)
+				continue	
+			
 			annotated_words, full_text = t.get_words_from_text(fixed_audio_file)
 			repaired_text = t.repair_text(full_text)
 			sentences = t.get_sentences(annotated_words, repaired_text)
 			logger.info("Found {} sentences in {}.", len(sentences), f)
 			
 			timestamp = datetime.now().microsecond
-			#output_dir = "out" + str(timestamp)
-			#wav_dir = os.path.join(output_dir, 'wavs')
-			#os.mkdir(output_dir)
-			#os.mkdir(wav_dir)
 			audio = AudioSegment.from_wav(fixed_audio_file)
 			
 			total_seconds += audio.duration_seconds
@@ -238,7 +274,8 @@ def create_transcript(dir_or_mp3_file):
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser()
 	parser.add_argument("--dir_or_mp3_file", dest="dir_or_mp3_file", help="A directory containing multiple mp3 files or a single mp3 file.", type=str)
+	parser.add_argument("--out_dir", dest="out_dir", help="Directory to store the generated dataset in.", type=str)
 	args = parser.parse_args()
 	logger.remove()
 	logger.add(sys.stderr, level="INFO")
-	create_transcript(args.dir_or_mp3_file)
+	create_transcript(args.dir_or_mp3_file, args.out_dir)

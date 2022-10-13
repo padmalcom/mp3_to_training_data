@@ -15,13 +15,19 @@ e.g. https://github.com/padmalcom/Real-Time-Voice-Cloning-German
 - Create a conda environment and install all requirements from the requirements.txt. Install torch according to your cuda setup.
 
 ## Run
-- Run using python main.py --dir_or_mp3_file "E:\my_audio_directory\" or python main.py --dir_or_mp3_file "E:\my_audio_file.mp3"
+- Run using python main.py --dir_or_mp3_file "E:\my_audio_directory\" --out_dir "output" or python main.py --dir_or_mp3_file "E:\my_audio_file.mp3" --out_dir "output"
 
 ## Output
-- The tool creates an output folder, called out[timestamp]. This folder contains:
+- The tool creates an output folder, called out[timestamp] if you haven't provided a folder name using --out_dir. This folder contains:
 	- a metadata.csv with filenames (excluding extensions) and texts
 	- a wavs folder containing:
 		- audio split into sentences and a corresponding txt file for each wav file with its spoken content
+	- a tmp folder that keeps track of all audio files that have already been processed.
+
+## Restartability
+The tool is able to continue a process. Therefore, the last ID of the metadata.csv is read and used to continue the process and all
+wav files in the output/tmp directory are skipped. This can lead to a loss of some sentences when only a few sentences of a wav file
+have been transcribed.
 
 ## Limitations
 - This tool has only been tested with german text.
