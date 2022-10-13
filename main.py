@@ -15,8 +15,9 @@ import sys
 from loguru import logger
 from timeit import default_timer as timer
 from transformers import pipeline
-
+import argparse
 from recasepunc import CasePuncPredictor
+import glob
 
 # This can be a word or a sentence
 class AnnotatedSequence:
@@ -79,7 +80,7 @@ class Transcriber:
 		self.rec = vosk.KaldiRecognizer(self.model, self.sample_rate)
 		self.rec.SetWords(True)
 		wf = wave.open(audio_file, "rb")
-		for i in tqdm(range(0, math.ceil(wf.getnframes() / 4000)), desc="Erkenne Audiosequenz..."):
+		for i in tqdm(range(0, math.ceil(wf.getnframes() / 4000)), desc="Discovering audio sequence ..."):
 		#while True:
 		   data = wf.readframes(4000)
 		   if len(data) == 0:
@@ -178,42 +179,66 @@ class Transcriber:
 		audio.export(file_name, format='wav', bitrate="64k")
 		return file_name, is_video
 		
-def create_transcript(audio_file):
+def get_files(dir_or_mp3_file):
+	files = []
+	if os.path.exists(dir_or_mp3_file):
+		if os.path.isfile(dir_or_mp3_file):
+			files.append(dir_or_mp3_file)
+		elif os.path.isdir(dir_or_mp3_file):
+			for file in glob.glob(os.path.join(dir_or_mp3_file, "*.mp3")):
+				files.append(file)
+	return files
+
+def create_transcript(dir_or_mp3_file):
 	start = timer()
 	t = Transcriber()
 	
-	fixed_audio_file, is_video = t.fix_audio(audio_file)
-	annotated_words, full_text = t.get_words_from_text(fixed_audio_file)
-	repaired_text = t.repair_text(full_text)	
-	sentences = t.get_sentences(annotated_words, repaired_text)
+	files = get_files(dir_or_mp3_file)
+	logger.info("There are {} mp3 files in total.", len(files))
+	total_seconds = 0
 	
 	timestamp = datetime.now().microsecond
 	output_dir = "out" + str(timestamp)
 	wav_dir = os.path.join(output_dir, 'wavs')
 	os.mkdir(output_dir)
 	os.mkdir(wav_dir)
-	audio = AudioSegment.from_wav(fixed_audio_file)
-	
+	counter = 0	
 	with open(os.path.join(output_dir, 'metadata.csv'), 'w', encoding="utf-8") as csvfile:
-				
-		for anse in sentences:
+		for f in files:
+		
+			fixed_audio_file, is_video = t.fix_audio(f)
+			annotated_words, full_text = t.get_words_from_text(fixed_audio_file)
+			repaired_text = t.repair_text(full_text)
+			sentences = t.get_sentences(annotated_words, repaired_text)
+			logger.info("Found {} sentences in {}.", len(sentences), f)
+			
 			timestamp = datetime.now().microsecond
-			extract = audio[int(anse.start*1000):int(anse.end*1000)]
-			extract.export(os.path.join(wav_dir, str(timestamp) + ".wav"), format='wav')
+			#output_dir = "out" + str(timestamp)
+			#wav_dir = os.path.join(output_dir, 'wavs')
+			#os.mkdir(output_dir)
+			#os.mkdir(wav_dir)
+			audio = AudioSegment.from_wav(fixed_audio_file)
 			
-			csvfile.write(str(timestamp) + "|" + anse.sequence + "\n")
-			
-			with open(os.path.join(wav_dir, str(timestamp) + ".txt"), 'w', encoding="utf-8") as txtfile:
-				txtfile.write(anse.sequence)
+			total_seconds += audio.duration_seconds
+					
+			for anse in sentences:
+				#timestamp = datetime.now().microsecond
+				extract = audio[int(anse.start*1000):int(anse.end*1000)]
+				extract.export(os.path.join(wav_dir, str(counter) + ".wav"), format='wav')
+				
+				csvfile.write(str(counter) + "|" + anse.sequence + "\n")
+				
+				with open(os.path.join(wav_dir, str(counter) + ".txt"), 'w', encoding="utf-8") as txtfile:
+					txtfile.write(anse.sequence)
+				counter +=1
 
-	
 	end = timer()
-	
-	logger.info("Done in {}  \n".format(timedelta(seconds=end-start)))
-	
-	
+	logger.info("Done in {}. Total audio time: {} \n".format(timedelta(seconds=end-start), timedelta(seconds=total_seconds)))
 			
 if __name__ == '__main__':
+	parser = argparse.ArgumentParser()
+	parser.add_argument("--dir_or_mp3_file", dest="dir_or_mp3_file", help="A directory containing multiple mp3 files or a single mp3 file.", type=str)
+	args = parser.parse_args()
 	logger.remove()
-	logger.add(sys.stderr, level="INFO")	
-	create_transcript("demo2.mp3")		
+	logger.add(sys.stderr, level="INFO")
+	create_transcript(args.dir_or_mp3_file)
