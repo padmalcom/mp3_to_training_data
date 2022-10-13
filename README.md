@@ -10,11 +10,12 @@ e.g. https://github.com/padmalcom/Real-Time-Voice-Cloning-German
 	- STT model: https://alphacephei.com/vosk/models/vosk-model-small-de-0.15.zip
 	- Puctuation and case restauration: https://alphacephei.com/vosk/models/vosk-recasepunc-de-0.21.zip
 - Extract both into the application directory.
+- Download BERT model from https://huggingface.co/dbmdz/bert-base-german-uncased
+	- Put all 8 files in application directory/dbmdz/bert_base_german-uncased
 - Create a conda environment and install all requirements from the requirements.txt. Install torch according to your cuda setup.
 
 ## Run
-- Open main.py and change the file name you want to extract text and audio samples at the bottom of the file.
-- Run using python main.py
+- Run using python main.py --dir_or_mp3_file "E:\my_audio_directory\" or python main.py --dir_or_mp3_file "E:\my_audio_file.mp3"
 
 ## Output
 - The tool creates an output folder, called out[timestamp]. This folder contains:
