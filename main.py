@@ -182,15 +182,12 @@ class Transcriber:
 def get_files(dir_or_mp3_file):
 	files = []
 	if os.path.exists(dir_or_mp3_file):
-		print(1)
 		if os.path.isfile(dir_or_mp3_file):
-			print(2)
 			files.append(dir_or_mp3_file)
 		elif os.path.isdir(dir_or_mp3_file):
 			if not dir_or_mp3_file.endswith("/"):
 				dir_or_mp3_file += "/"
 			search_path = dir_or_mp3_file + "**/*.mp3"
-			print(search_path)
 			for file in glob.glob(search_path, recursive=True):
 				files.append(file)
 	return files
@@ -210,7 +207,9 @@ def create_transcript(dir_or_mp3_file, out_dir):
 	if out_dir:
 		output_dir = out_dir
 		tmp_dir = os.path.join(output_dir, "tmp")
+		
 	wav_dir = os.path.join(output_dir, 'wavs')
+	
 	if not os.path.exists(output_dir):
 		os.mkdir(output_dir)
 		
@@ -219,9 +218,12 @@ def create_transcript(dir_or_mp3_file, out_dir):
 		
 	if not os.path.exists(tmp_dir):
 		os.mkdir(tmp_dir)
+
+	logger.info("Output directory is {}, wav directory is {}, temp directory is {}.", output_dir, wav_dir, tmp_dir)
 		
 	counter = 0	
 	metadata_file = os.path.join(output_dir, "metadata.csv")
+	logger.info("Looking for existing metadata.csv at {}...", metadata_file)
 	# check if a previous process has to be continued
 	if os.path.exists(metadata_file):
 		with open(metadata_file, 'r', encoding="utf-8") as f:
