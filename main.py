@@ -50,8 +50,8 @@ class Transcriber:
 	def __init__(self):
 		vosk.SetLogLevel(-2)
 		
-		model_path = 'vosk-model-small-de-0.15'
-		# model_path = 'vosk-model-de-0.21'
+		# model_path = 'vosk-model-small-de-0.15'
+		model_path = 'vosk-model-de-0.21'
 		self.COSINE_DIST = 0.4
 		self.sample_rate = 16000
 		self.model = vosk.Model(model_path)

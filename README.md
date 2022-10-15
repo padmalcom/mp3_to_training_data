@@ -7,7 +7,7 @@ e.g. https://github.com/padmalcom/Real-Time-Voice-Cloning-German
 
 ## Installation
 - Download vosk models from https://alphacephei.com/vosk/models:
-	- STT model: https://alphacephei.com/vosk/models/vosk-model-small-de-0.15.zip
+	- STT model: https://alphacephei.com/vosk/models/vosk-model-de-0.21.zip
 	- Puctuation and case restauration: https://alphacephei.com/vosk/models/vosk-recasepunc-de-0.21.zip
 - Extract both into the application directory.
 - Download BERT model from https://huggingface.co/dbmdz/bert-base-german-uncased
