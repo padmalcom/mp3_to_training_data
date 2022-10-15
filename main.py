@@ -132,6 +132,10 @@ class Transcriber:
 	def get_sentences(self, words, repaired_text):
 		sentences = []
 		
+		if len(words) == 0:
+			logger.info("There are 0 words in sentence {}.", repaired_text)
+			return sentences
+		
 		# split repaired_text in sentences
 		nlp = German()
 		nlp.add_pipe('sentencizer')
@@ -149,7 +153,7 @@ class Transcriber:
 				avg_conf = sum(confidences) / (len(confidences) + 0.00000001)
 				min_conf = min(confidences)
 			
-			#print("Lenth {}, start_index {}, end_index {}".format(len(words), word_index, end_index))
+			logger.debug("Word count {}, start_index {}, end_index {}".format(len(words), word_index, end_index))
 			sentences.append(AnnotatedSequence(rts, words[word_index].start, words[end_index].end, None, avg_conf, min_conf))
 			word_index = end_index + 1
 		return sentences
@@ -220,7 +224,8 @@ def create_transcript(dir_or_mp3_file, out_dir):
 		os.mkdir(tmp_dir)
 
 	logger.info("Output directory is {}, wav directory is {}, temp directory is {}.", output_dir, wav_dir, tmp_dir)
-		
+	
+	file_mode = 'w'
 	counter = 0	
 	metadata_file = os.path.join(output_dir, "metadata.csv")
 	logger.info("Looking for existing metadata.csv at {}...", metadata_file)
@@ -236,9 +241,10 @@ def create_transcript(dir_or_mp3_file, out_dir):
 					break
 
 	if counter > 0:
+		file_mode = 'a'
 		logger.info("Existing metadata.csv found. Continuing at audio file {}.", counter)
 	
-	with open(os.path.join(output_dir, 'metadata.csv'), 'w', encoding="utf-8") as csvfile:
+	with open(os.path.join(output_dir, 'metadata.csv'), file_mode, encoding="utf-8") as csvfile:
 		for index, f in enumerate(files):
 			logger.info("Processing file {}/{} (audio so far: {})...", index, len(files), timedelta(seconds=total_seconds))
 							
