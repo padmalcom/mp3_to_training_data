@@ -154,6 +154,11 @@ class Transcriber:
 				min_conf = min(confidences)
 			
 			logger.debug("Word count {}, start_index {}, end_index {}".format(len(words), word_index, end_index))
+			
+			if end_index < word_index:
+				logger.warning("Sentence {} in text {} is messed up. Skipping entire audio file.", rts, repaired_text)
+				return sentences
+				
 			sentences.append(AnnotatedSequence(rts, words[word_index].start, words[end_index].end, None, avg_conf, min_conf))
 			word_index = end_index + 1
 		return sentences
@@ -196,7 +201,7 @@ def get_files(dir_or_mp3_file):
 				files.append(file)
 	return files
 
-def create_transcript(dir_or_mp3_file, out_dir):
+def create_transcript(dir_or_mp3_file, out_dir, min_sentence_length, min_audio_length, max_audio_length):
 	start = timer()
 	t = Transcriber()
 	
@@ -268,13 +273,22 @@ def create_transcript(dir_or_mp3_file, out_dir):
 			for anse in sentences:
 				#timestamp = datetime.now().microsecond
 				extract = audio[int(anse.start*1000):int(anse.end*1000)]
-				extract.export(os.path.join(wav_dir, str(counter) + ".wav"), format='wav')
-				
-				csvfile.write(str(counter) + "|" + anse.sequence + "\n")
-				
-				with open(os.path.join(wav_dir, str(counter) + ".txt"), 'w', encoding="utf-8") as txtfile:
-					txtfile.write(anse.sequence)
-				counter +=1
+				if extract.duration_seconds >= min_audio_length:
+					if extract.duration_seconds >= max_audio_length:
+						if len(anse.sequence) >= min_sentence_length:
+							extract.export(os.path.join(wav_dir, str(counter) + ".wav"), format='wav')
+							
+							csvfile.write(str(counter) + "|" + anse.sequence + "\n")
+							
+							with open(os.path.join(wav_dir, str(counter) + ".txt"), 'w', encoding="utf-8") as txtfile:
+								txtfile.write(anse.sequence)
+							counter +=1
+						else:
+							logger.info("Sentence {} is not long enough.", anse.sequence)
+					else:
+						logger.info("Audio of sentence {} is too long with {} seconds.", anse.sequence, extract.duration_seconds)
+				else:
+					logger.info("Audio of sentence {} is too short with only {} seconds.", anse.sequence, extract.duration_seconds)
 
 	end = timer()
 	logger.info("Done in {}. Total audio time: {} \n".format(timedelta(seconds=end-start), timedelta(seconds=total_seconds)))
@@ -283,7 +297,10 @@ if __name__ == '__main__':
 	parser = argparse.ArgumentParser()
 	parser.add_argument("--dir_or_mp3_file", dest="dir_or_mp3_file", help="A directory containing multiple mp3 files or a single mp3 file.", type=str)
 	parser.add_argument("--out_dir", dest="out_dir", help="Directory to store the generated dataset in.", type=str)
+	parser.add_argument("--min_sentence_length", dest="min_sentence_length", help="Minimum of characters in a sentence.", type=int, default=5)
+	parser.add_argument("--min_audio_length", dest="min_audio_length", help="Minimum length of the generated audio in seconds.", type=int, default=2)
+	parser.add_argument("--max_audio_length", dest="max_audio_length", help="Maximum length of the generated audio in seconds.", type=int, default=30)
 	args = parser.parse_args()
 	logger.remove()
-	logger.add(sys.stderr, level="INFO")
-	create_transcript(args.dir_or_mp3_file, args.out_dir)
+	logger.add(sys.stderr, level="DEBUG")
+	create_transcript(args.dir_or_mp3_file, args.out_dir, args.min_sentence_length, args.min_audio_length args.max_audio_length)
