@@ -303,4 +303,4 @@ if __name__ == '__main__':
 	args = parser.parse_args()
 	logger.remove()
 	logger.add(sys.stderr, level="DEBUG")
-	create_transcript(args.dir_or_mp3_file, args.out_dir, args.min_sentence_length, args.min_audio_length args.max_audio_length)
+	create_transcript(args.dir_or_mp3_file, args.out_dir, args.min_sentence_length, args.min_audio_length, args.max_audio_length)
