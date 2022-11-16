@@ -274,7 +274,7 @@ def create_transcript(dir_or_mp3_file, out_dir, min_sentence_length, min_audio_l
 				#timestamp = datetime.now().microsecond
 				extract = audio[int(anse.start*1000):int(anse.end*1000)]
 				if extract.duration_seconds >= min_audio_length:
-					if extract.duration_seconds >= max_audio_length:
+					if extract.duration_seconds <= max_audio_length:
 						if len(anse.sequence) >= min_sentence_length:
 							extract.export(os.path.join(wav_dir, str(counter) + ".wav"), format='wav')
 							
