@@ -82,7 +82,8 @@ class Transcriber:
 		self.rec = vosk.KaldiRecognizer(self.model, self.sample_rate)
 		self.rec.SetWords(True)
 		wf = wave.open(audio_file, "rb")
-		for i in tqdm(range(0, math.ceil(wf.getnframes() / 4000)), desc="Discovering audio sequence ..."):
+		#for i in tqdm(range(0, math.ceil(wf.getnframes() / 4000)), desc="Discovering audio sequence ..."):
+		for i in range(0, math.ceil(wf.getnframes() / 4000)):
 		#while True:
 		   data = wf.readframes(4000)
 		   if len(data) == 0:
@@ -128,14 +129,14 @@ class Transcriber:
 			if len(repaired_sentence_without_punct)*2 < len(sentence_to_compare):
 				logger.trace("Length of sentence to compare is twice as big - break.")
 				break
-		logger.debug("Best end {}, best ratio {}.", best_end_index, best_ratio)
+		logger.trace("Best end {}, best ratio {}.", best_end_index, best_ratio)
 		return best_end_index		
 		
 	def get_sentences(self, words, repaired_text):
 		sentences = []
 		
 		if len(words) == 0:
-			logger.info("There are 0 words in sentence {}.", repaired_text)
+			logger.debug("There are 0 words in sentence {}.", repaired_text)
 			return sentences
 		
 		# split repaired_text in sentences
@@ -205,29 +206,24 @@ def get_files(dir_or_mp3_file):
 	
 def create_transcript_batch(files, batch_index, start_index, output_dir, tmp_dir, wav_dir, min_audio_length, max_audio_length, min_sentence_length):
 	t = Transcriber()
-	print(1)
-	print(len(files))
 	counter = start_index
-	print(2)
 	metadata_file = os.path.join(output_dir, "metadata{}.csv".format(batch_index))
 	total_seconds = 0
-	print(3)
 	with open(metadata_file, 'w', encoding="utf-8") as csvfile:
-		print(4)
-		for file_index, f in enumerate(files):
-			logger.info("Batch {}: Processing file {}/{} (audio so far: {})...", batch_index, file_index, len(files), timedelta(seconds=total_seconds))
+		for file_index, f in enumerate(tqdm(files, desc="Processing files in batch {}".format(batch_index), position=batch_index)):
+			logger.debug("Batch {}: Processing file {}/{} (audio so far: {})...", batch_index, file_index, len(files), timedelta(seconds=total_seconds))
 							
 			fixed_audio_file, is_video, audio_duration, file_existed = t.fix_audio(f, tmp_dir)
 			
 			if file_existed:
 				total_seconds +=audio_duration				
-				logger.info("File {} already processed. skipping...", fixed_audio_file)
+				logger.debug("File {} already processed. skipping...", fixed_audio_file)
 				continue	
 			
 			annotated_words, full_text = t.get_words_from_text(fixed_audio_file)
 			repaired_text = t.repair_text(full_text)
 			sentences = t.get_sentences(annotated_words, repaired_text)
-			logger.info("Found {} sentences in {}.", len(sentences), f)
+			logger.debug("Found {} sentences in {}.", len(sentences), f)
 			
 			timestamp = datetime.now().microsecond
 			audio = AudioSegment.from_wav(fixed_audio_file)
@@ -248,11 +244,11 @@ def create_transcript_batch(files, batch_index, start_index, output_dir, tmp_dir
 								txtfile.write(anse.sequence)
 							counter +=1
 						else:
-							logger.info("Sentence {} is not long enough.", anse.sequence)
+							logger.debug("Sentence {} is not long enough.", anse.sequence)
 					else:
-						logger.info("Audio of sentence {} is too long with {} seconds.", anse.sequence, extract.duration_seconds)
+						logger.debug("Audio of sentence {} is too long with {} seconds.", anse.sequence, extract.duration_seconds)
 				else:
-					logger.info("Audio of sentence {} is too short with only {} seconds.", anse.sequence, extract.duration_seconds)
+					logger.debug("Audio of sentence {} is too short with only {} seconds.", anse.sequence, extract.duration_seconds)
 	logger.info("Batch {} finished. Waiting for others...", batch_index)
 	
 def create_transcript(dir_or_mp3_file, out_dir, min_sentence_length, min_audio_length, max_audio_length, number_of_processes):
@@ -288,7 +284,7 @@ def create_transcript(dir_or_mp3_file, out_dir, min_sentence_length, min_audio_l
 	if not os.path.exists(tmp_dir):
 		os.mkdir(tmp_dir)
 		
-	logger.info("Output directory is {}, wav directory is {}, temp directory is {}.", output_dir, wav_dir, tmp_dir)
+	logger.debug("Output directory is {}, wav directory is {}, temp directory is {}.", output_dir, wav_dir, tmp_dir)
 		
 	# split batches
 	processes = []
@@ -305,6 +301,15 @@ def create_transcript(dir_or_mp3_file, out_dir, min_sentence_length, min_audio_l
 		p.join()
 
 	# Todo: Join metadata files
+
+	filenames = [os.path.join(output_dir, "metadata{}.csv".format(i)) for i in range(number_of_processes)]
+	metadata_file = os.path.join(output_dir, "metadata.csv")
+	with open(metadata_file, 'w') as outfile:
+		for names in filenames:
+			with open(names) as infile:
+				outfile.write(infile.read())
+			outfile.write("\n")
+		
 	end = timer()
 	logger.info("Done in {}. Total audio time: {} \n".format(timedelta(seconds=end-start), 1))# timedelta(seconds=total_seconds)))
 			
@@ -319,5 +324,5 @@ if __name__ == '__main__':
 	parser.add_argument("-p", "--number_of_processes", dest="number_of_processes", help="The number of processes to process the data.", type=int, default=4)
 	args = parser.parse_args()
 	logger.remove()
-	logger.add(sys.stderr, level="DEBUG")
+	logger.add(sys.stderr, level="INFO")
 	create_transcript(args.dir_or_mp3_file, args.out_dir, args.min_sentence_length, args.min_audio_length, args.max_audio_length, args.number_of_processes)
