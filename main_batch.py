@@ -203,7 +203,7 @@ def get_files(dir_or_mp3_file):
 				files.append(file)
 	return files
 	
-def create_transcript_batch(files, batch_index, start_index, output_dir, tmp_dir, wav_dir):
+def create_transcript_batch(files, batch_index, start_index, output_dir, tmp_dir, wav_dir, min_audio_length, max_audio_length, min_sentence_length):
 	t = Transcriber()
 	print(1)
 	print(len(files))
@@ -295,7 +295,7 @@ def create_transcript(dir_or_mp3_file, out_dir, min_sentence_length, min_audio_l
 	batches = np.array_split(files, number_of_processes)
 	start_index = 0
 	for i, batch in enumerate(batches):
-		p = Process(target=create_transcript_batch, args=(batch, i, start_index, output_dir, tmp_dir, wav_dir))
+		p = Process(target=create_transcript_batch, args=(batch, i, start_index, output_dir, tmp_dir, wav_dir, min_audio_length, max_audio_length, min_sentence_length))
 		start_index += len(batch)
 		p.start()
 		processes.append(p)
