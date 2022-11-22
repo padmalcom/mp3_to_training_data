@@ -163,7 +163,7 @@ class Transcriber:
 			word_index = end_index + 1
 		return sentences
 		
-	def fix_audio(self, audio_file, tmp_dir):
+	def fix_audio(self, audio_file, tmp_dir, sample_rate):
 		file_name, file_extension = os.path.splitext(os.path.basename(audio_file))
 		audio = None
 		is_video = False
@@ -181,7 +181,7 @@ class Transcriber:
 			sys.exit(0)
 			
 		audio = audio.set_channels(1)
-		audio = audio.set_frame_rate(16000)
+		audio = audio.set_frame_rate(sample_rate)
 		audio = audio.set_sample_width(2)
 		file_name = os.path.join(tmp_dir, file_name + ".wav")
 		file_exists = os.path.exists(file_name)
@@ -201,7 +201,7 @@ def get_files(dir_or_mp3_file):
 				files.append(file)
 	return files
 
-def create_transcript(dir_or_mp3_file, out_dir, min_sentence_length, min_audio_length, max_audio_length):
+def create_transcript(dir_or_mp3_file, out_dir, min_sentence_length, min_audio_length, max_audio_length, sample_rate):
 	start = timer()
 	t = Transcriber()
 	
@@ -253,7 +253,7 @@ def create_transcript(dir_or_mp3_file, out_dir, min_sentence_length, min_audio_l
 		for index, f in enumerate(files):
 			logger.info("Processing file {}/{} (audio so far: {})...", index, len(files), timedelta(seconds=total_seconds))
 							
-			fixed_audio_file, is_video, audio_duration, file_existed = t.fix_audio(f, tmp_dir)
+			fixed_audio_file, is_video, audio_duration, file_existed = t.fix_audio(f, tmp_dir, sample_rate)
 			
 			if file_existed:
 				total_seconds +=audio_duration				
@@ -295,12 +295,13 @@ def create_transcript(dir_or_mp3_file, out_dir, min_sentence_length, min_audio_l
 			
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser()
-	parser.add_argument("--dir_or_mp3_file", dest="dir_or_mp3_file", help="A directory containing multiple mp3 files or a single mp3 file.", type=str)
-	parser.add_argument("--out_dir", dest="out_dir", help="Directory to store the generated dataset in.", type=str)
-	parser.add_argument("--min_sentence_length", dest="min_sentence_length", help="Minimum of characters in a sentence.", type=int, default=5)
-	parser.add_argument("--min_audio_length", dest="min_audio_length", help="Minimum length of the generated audio in seconds.", type=int, default=2)
-	parser.add_argument("--max_audio_length", dest="max_audio_length", help="Maximum length of the generated audio in seconds.", type=int, default=30)
+	parser.add_argument("-i", "--dir_or_mp3_file", dest="dir_or_mp3_file", help="A directory containing multiple mp3 files or a single mp3 file.", type=str)
+	parser.add_argument("-o", "--out_dir", dest="out_dir", help="Directory to store the generated dataset in.", type=str)
+	parser.add_argument("-s", "--min_sentence_length", dest="min_sentence_length", help="Minimum of characters in a sentence.", type=int, default=5)
+	parser.add_argument("-m", "--min_audio_length", dest="min_audio_length", help="Minimum length of the generated audio in seconds.", type=int, default=2)
+	parser.add_argument("-l", "--max_audio_length", dest="max_audio_length", help="Maximum length of the generated audio in seconds.", type=int, default=30)
+	parser.add_argument("-r", "--sample_rate", dest="sample_rate", help="The sample rate of the input data.", type=int, default=22050)
 	args = parser.parse_args()
 	logger.remove()
 	logger.add(sys.stderr, level="DEBUG")
-	create_transcript(args.dir_or_mp3_file, args.out_dir, args.min_sentence_length, args.min_audio_length, args.max_audio_length)
+	create_transcript(args.dir_or_mp3_file, args.out_dir, args.min_sentence_length, args.min_audio_length, args.max_audio_length, args.sample_rate)

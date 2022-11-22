@@ -166,7 +166,7 @@ class Transcriber:
 			word_index = end_index + 1
 		return sentences
 		
-	def fix_audio(self, audio_file, tmp_dir):
+	def fix_audio(self, audio_file, tmp_dir, sample_rate):
 		file_name, file_extension = os.path.splitext(os.path.basename(audio_file))
 		audio = None
 		is_video = False
@@ -184,7 +184,7 @@ class Transcriber:
 			sys.exit(0)
 			
 		audio = audio.set_channels(1)
-		audio = audio.set_frame_rate(16000)
+		audio = audio.set_frame_rate(sample_rate)
 		audio = audio.set_sample_width(2)
 		file_name = os.path.join(tmp_dir, file_name + ".wav")
 		file_exists = os.path.exists(file_name)
@@ -204,7 +204,7 @@ def get_files(dir_or_mp3_file):
 				files.append(file)
 	return files
 	
-def create_transcript_batch(files, batch_index, start_index, output_dir, tmp_dir, wav_dir, min_audio_length, max_audio_length, min_sentence_length):
+def create_transcript_batch(files, batch_index, start_index, output_dir, tmp_dir, wav_dir, min_audio_length, max_audio_length, min_sentence_length, sample_rate):
 	t = Transcriber()
 	counter = start_index
 	metadata_file = os.path.join(output_dir, "metadata{}.csv".format(batch_index))
@@ -213,7 +213,7 @@ def create_transcript_batch(files, batch_index, start_index, output_dir, tmp_dir
 		for file_index, f in enumerate(tqdm(files, desc="Processing files in batch {}".format(batch_index), position=batch_index)):
 			logger.debug("Batch {}: Processing file {}/{} (audio so far: {})...", batch_index, file_index, len(files), timedelta(seconds=total_seconds))
 							
-			fixed_audio_file, is_video, audio_duration, file_existed = t.fix_audio(f, tmp_dir)
+			fixed_audio_file, is_video, audio_duration, file_existed = t.fix_audio(f, tmp_dir, sample_rate)
 			
 			if file_existed:
 				total_seconds +=audio_duration				
@@ -251,7 +251,7 @@ def create_transcript_batch(files, batch_index, start_index, output_dir, tmp_dir
 					logger.debug("Audio of sentence {} is too short with only {} seconds.", anse.sequence, extract.duration_seconds)
 	logger.info("Batch {} finished. Waiting for others...", batch_index)
 	
-def create_transcript(dir_or_mp3_file, out_dir, min_sentence_length, min_audio_length, max_audio_length, number_of_processes):
+def create_transcript(dir_or_mp3_file, out_dir, min_sentence_length, min_audio_length, max_audio_length, number_of_processes, sample_rate):
 	logger.info("Creating transcript...")
 	start = timer()
 	
@@ -291,7 +291,7 @@ def create_transcript(dir_or_mp3_file, out_dir, min_sentence_length, min_audio_l
 	batches = np.array_split(files, number_of_processes)
 	start_index = 0
 	for i, batch in enumerate(batches):
-		p = Process(target=create_transcript_batch, args=(batch, i, start_index, output_dir, tmp_dir, wav_dir, min_audio_length, max_audio_length, min_sentence_length))
+		p = Process(target=create_transcript_batch, args=(batch, i, start_index, output_dir, tmp_dir, wav_dir, min_audio_length, max_audio_length, min_sentence_length, sample_rate))
 		start_index += len(batch)
 		p.start()
 		processes.append(p)
@@ -322,7 +322,9 @@ if __name__ == '__main__':
 	parser.add_argument("-m", "--min_audio_length", dest="min_audio_length", help="Minimum length of the generated audio in seconds.", type=int, default=2)
 	parser.add_argument("-l", "--max_audio_length", dest="max_audio_length", help="Maximum length of the generated audio in seconds.", type=int, default=30)
 	parser.add_argument("-p", "--number_of_processes", dest="number_of_processes", help="The number of processes to process the data.", type=int, default=4)
+	parser.add_argument("-r", "--sample_rate", dest="sample_rate", help="The sample rate of the input data.", type=int, default=22050)
+	
 	args = parser.parse_args()
 	logger.remove()
 	logger.add(sys.stderr, level="INFO")
-	create_transcript(args.dir_or_mp3_file, args.out_dir, args.min_sentence_length, args.min_audio_length, args.max_audio_length, args.number_of_processes)
+	create_transcript(args.dir_or_mp3_file, args.out_dir, args.min_sentence_length, args.min_audio_length, args.max_audio_length, args.number_of_processes, args.sample_rate)
